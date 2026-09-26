@@ -1,4 +1,7 @@
+import sys
 import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import pandas as pd
 from sqlalchemy import create_engine, text
 import logging
@@ -26,9 +29,19 @@ class SupportIQPipeline:
             conn.execute(text(sql_script))
         logger.info("Database schema initialized successfully.")
 
+    def clear_database_data(self):
+        """Cleanly drop views and truncate tables before re-loading."""
+        with self.engine.begin() as conn:
+            conn.execute(text("DROP VIEW IF EXISTS v_executive_kpis CASCADE;"))
+            conn.execute(text("DROP VIEW IF EXISTS v_agent_performance CASCADE;"))
+            conn.execute(text("DROP VIEW IF EXISTS v_sla_risk_queue CASCADE;"))
+            conn.execute(text("DROP VIEW IF EXISTS v_customer_issue_intelligence CASCADE;"))
+            conn.execute(text("TRUNCATE fact_tickets, dim_agents, dim_customers, dim_products, sla_risk_log RESTART IDENTITY CASCADE;"))
+
     def run_pipeline(self):
         logger.info("Starting SupportIQ ETL Pipeline...")
         self.init_database_schema()
+        self.clear_database_data()
 
         if self.use_mock:
             logger.info("Running pipeline with Mock Baserow Client...")
@@ -42,11 +55,6 @@ class SupportIQPipeline:
         if not tables:
             raise RuntimeError("No tables found in Baserow database!")
 
-        # 1. Truncate existing data in fact and dimension tables safely
-        with self.engine.begin() as conn:
-            conn.execute(text("TRUNCATE TABLE fact_tickets, dim_agents, dim_customers, dim_products, sla_risk_log CASCADE;"))
-            logger.info("Truncated existing analytics tables.")
-
         # 1. Fetch Agents
         agents_table_id = tables.get("Agents")
         raw_agents = client.get_rows(agents_table_id) if agents_table_id else []
@@ -54,7 +62,7 @@ class SupportIQPipeline:
         if not df_agents.empty:
             cols = [c for c in ['agent_id', 'name', 'team', 'region', 'joining_date', 'manager'] if c in df_agents.columns]
             df_agents = df_agents[cols].dropna(subset=['agent_id'])
-            df_agents = df_agents[df_agents['agent_id'].astype(str).str.strip() != ''].drop_duplicates(subset=['agent_id'])
+            df_agents = df_agents[df_agents['agent_id'] != ''].drop_duplicates(subset=['agent_id'])
             df_agents.to_sql("dim_agents", self.engine, if_exists="append", index=False)
             logger.info(f"Loaded {len(df_agents)} rows into dim_agents.")
 
@@ -65,7 +73,7 @@ class SupportIQPipeline:
         if not df_customers.empty:
             cols = [c for c in ['customer_id', 'customer_segment', 'region', 'signup_date', 'plan'] if c in df_customers.columns]
             df_customers = df_customers[cols].dropna(subset=['customer_id'])
-            df_customers = df_customers[df_customers['customer_id'].astype(str).str.strip() != ''].drop_duplicates(subset=['customer_id'])
+            df_customers = df_customers[df_customers['customer_id'] != ''].drop_duplicates(subset=['customer_id'])
             df_customers.to_sql("dim_customers", self.engine, if_exists="append", index=False)
             logger.info(f"Loaded {len(df_customers)} rows into dim_customers.")
 
@@ -76,7 +84,7 @@ class SupportIQPipeline:
         if not df_products.empty:
             cols = [c for c in ['product_id', 'product_name', 'product_category'] if c in df_products.columns]
             df_products = df_products[cols].dropna(subset=['product_id'])
-            df_products = df_products[df_products['product_id'].astype(str).str.strip() != ''].drop_duplicates(subset=['product_id'])
+            df_products = df_products[df_products['product_id'] != ''].drop_duplicates(subset=['product_id'])
             df_products.to_sql("dim_products", self.engine, if_exists="append", index=False)
             logger.info(f"Loaded {len(df_products)} rows into dim_products.")
 
@@ -85,10 +93,8 @@ class SupportIQPipeline:
         raw_tickets = client.get_rows(tickets_table_id) if tickets_table_id else []
         df_tickets = pd.DataFrame(raw_tickets)
         if not df_tickets.empty:
-            if 'ticket_id' in df_tickets.columns:
-                df_tickets = df_tickets.dropna(subset=['ticket_id'])
-                df_tickets = df_tickets[df_tickets['ticket_id'].astype(str).str.strip() != ''].drop_duplicates(subset=['ticket_id'])
-            
+            df_tickets = df_tickets.dropna(subset=['ticket_id'])
+            df_tickets = df_tickets[df_tickets['ticket_id'] != ''].drop_duplicates(subset=['ticket_id'])
             df_tickets_transformed = transform_tickets(df_tickets)
             
             target_cols = [
@@ -120,6 +126,8 @@ class SupportIQPipeline:
                 pd.DataFrame(risk_log_rows).to_sql("sla_risk_log", self.engine, if_exists="append", index=False)
                 logger.info(f"Logged {len(risk_log_rows)} open ticket SLA risk snapshots.")
 
+        # Re-apply view definitions to ensure proper relations
+        self.init_database_schema()
         logger.info("SupportIQ ETL Pipeline run completed cleanly!")
         return True
 

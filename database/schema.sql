@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS fact_tickets (
     first_response_hours NUMERIC(10,2),
     resolution_hours NUMERIC(10,2),
     is_sla_breached BOOLEAN DEFAULT FALSE,
-    sla_risk_score NUMERIC(10,4),
+    sla_risk_score NUMERIC(5,4),
     sla_risk_category VARCHAR(50),
     csat NUMERIC(3,2),
     customer_region VARCHAR(50) NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS sla_risk_log (
     ticket_id VARCHAR(50) REFERENCES fact_tickets(ticket_id),
     elapsed_hours NUMERIC(10,2) NOT NULL,
     sla_target_hours NUMERIC(10,2) NOT NULL,
-    sla_risk_score NUMERIC(10,4) NOT NULL,
+    sla_risk_score NUMERIC(5,4) NOT NULL,
     sla_risk_category VARCHAR(50) NOT NULL,
     logged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
