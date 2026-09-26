@@ -1,7 +1,10 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import random
 import datetime
 import logging
-import requests
 from config import Config
 from etl.baserow_client import BaserowClient
 
@@ -125,21 +128,6 @@ def generate_synthetic_data(num_tickets=1284, num_customers=150):
 
     return AGENTS_DATA, customers, PRODUCTS_DATA, tickets
 
-def setup_table_fields(client, table_id, field_definitions):
-    # Fetch existing fields
-    url = f"{client.base_url}/api/database/fields/table/{table_id}/"
-    res = requests.get(url, headers=client.get_headers())
-    existing_fields = res.json() if res.status_code == 200 else []
-    existing_names = [f["name"] for f in existing_fields]
-
-    for name, type_info in field_definitions.items():
-        if name not in existing_names:
-            if isinstance(type_info, tuple):
-                type_name, kwargs = type_info
-            else:
-                type_name, kwargs = type_info, {}
-            client.create_field(table_id, name, type_name, **kwargs)
-
 def seed_baserow_instance():
     logger.info("Initializing Baserow connection...")
     client = BaserowClient()
@@ -152,48 +140,22 @@ def seed_baserow_instance():
     customers_table_id = client.create_table("Customers")
     products_table_id = client.create_table("Products")
     tickets_table_id = client.create_table("Tickets")
-
-    # Define & Create Table Fields
-    setup_table_fields(client, agents_table_id, {
-        "agent_id": "text", "name": "text", "team": "text", 
-        "region": "text", "joining_date": "text", "manager": "text"
-    })
-    setup_table_fields(client, customers_table_id, {
-        "customer_id": "text", "customer_segment": "text", 
-        "region": "text", "signup_date": "text", "plan": "text"
-    })
-    setup_table_fields(client, products_table_id, {
-        "product_id": "text", "product_name": "text", "product_category": "text"
-    })
-    setup_table_fields(client, tickets_table_id, {
-        "ticket_id": "text", "customer_id": "text", "agent_id": "text",
-        "product_id": "text", "category": "text", "priority": "text",
-        "channel": "text", "status": "text", "created_at": "text",
-        "first_response_at": "text", "resolved_at": "text",
-        "sla_target_hours": ("number", {"number_decimal_places": 2}),
-        "csat": ("number", {"number_decimal_places": 2}),
-        "customer_region": "text"
-    })
     
     # Generate Synthetic Data
     logger.info("Generating 1,284 synthetic operational tickets...")
     agents, customers, products, tickets = generate_synthetic_data(num_tickets=1284, num_customers=150)
     
-    # Clear existing rows and seed
-    logger.info("Clearing old rows and seeding Agents table...")
-    client.clear_table_rows(agents_table_id)
+    # Populate Tables
+    logger.info("Seeding Agents table...")
     client.batch_create_rows(agents_table_id, agents)
     
-    logger.info("Clearing old rows and seeding Customers table...")
-    client.clear_table_rows(customers_table_id)
+    logger.info("Seeding Customers table...")
     client.batch_create_rows(customers_table_id, customers)
     
-    logger.info("Clearing old rows and seeding Products table...")
-    client.clear_table_rows(products_table_id)
+    logger.info("Seeding Products table...")
     client.batch_create_rows(products_table_id, products)
     
-    logger.info("Clearing old rows and seeding Tickets table...")
-    client.clear_table_rows(tickets_table_id)
+    logger.info("Seeding Tickets table...")
     client.batch_create_rows(tickets_table_id, tickets)
     
     logger.info("Baserow seeding completed successfully!")

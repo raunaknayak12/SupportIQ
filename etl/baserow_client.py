@@ -174,19 +174,6 @@ class BaserowClient:
                 break
         return all_rows
 
-    def clear_table_rows(self, table_id):
-        rows = self.get_rows(table_id)
-        if not rows:
-            return
-        row_ids = [r["id"] for r in rows]
-        chunk_size = 200
-        for i in range(0, len(row_ids), chunk_size):
-            chunk = row_ids[i:i + chunk_size]
-            url = f"{self.base_url}/api/database/rows/table/{table_id}/batch/"
-            res = requests.delete(url, json={"items": chunk}, headers=self.get_headers())
-            if res.status_code not in [200, 204]:
-                logger.warning(f"Error clearing rows in table {table_id}: {res.status_code} - {res.text}")
-
     def batch_create_rows(self, table_id, rows, user_field_names=True):
         url = f"{self.base_url}/api/database/rows/table/{table_id}/batch/?user_field_names={str(user_field_names).lower()}"
         chunk_size = 200
@@ -199,7 +186,7 @@ class BaserowClient:
                 created = len(res.json().get("items", []))
                 total_created += created
             else:
-                logger.error(f"Batch insert error for table {table_id}: {res.status_code} - {res.text}")
+                logger.error(f"Batch insert error: {res.status_code} - {res.text}")
         logger.info(f"Inserted {total_created} rows into table {table_id}")
         return total_created
 
