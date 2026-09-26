@@ -1,0 +1,28 @@
+services:
+  baserow:
+    image: baserow/baserow:latest
+    container_name: supportiq_baserow
+    environment:
+      BASEROW_PUBLIC_URL: "http://localhost:8000"
+    ports:
+      - "8000:80"
+    volumes:
+      - baserow_data:/baserow/data
+    restart: unless-stopped
+
+  supportiq_postgres:
+    image: postgres:17
+    container_name: supportiq_postgres
+    environment:
+      POSTGRES_USER: supportiq
+      POSTGRES_PASSWORD: supportiq_pass
+      POSTGRES_DB: supportiq_analytics
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  baserow_data:
+  postgres_data:
