@@ -140,3 +140,24 @@ FROM fact_tickets t
 LEFT JOIN dim_products p ON t.product_id = p.product_id
 LEFT JOIN dim_customers c ON t.customer_id = c.customer_id
 GROUP BY t.category, p.product_name, c.customer_segment, t.customer_region;
+
+-- 5. Operational Schema & Tickets Table for Ticket Intake and Lifecycle
+CREATE SCHEMA IF NOT EXISTS ops;
+
+CREATE TABLE IF NOT EXISTS ops.tickets (
+    ticket_id VARCHAR(50) PRIMARY KEY,
+    customer_id VARCHAR(50),
+    agent_id VARCHAR(50),
+    product_id VARCHAR(50),
+    category VARCHAR(100) NOT NULL,
+    priority VARCHAR(50) NOT NULL,
+    channel VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Open',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ops_tickets_status ON ops.tickets(status);
+CREATE INDEX IF NOT EXISTS idx_ops_tickets_created_at ON ops.tickets(created_at);
+
