@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}New Ticket — SupportIQ{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Ticket Intake Form -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white py-3 border-bottom">
+                <h4 class="fw-bold mb-1"><i class="bi bi-ticket-plus text-primary me-2"></i>Submit a New Ticket</h4>
+                <p class="text-muted small mb-0">Record an operational customer support ticket into <code>ops.tickets</code></p>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="{{ url_for('intake.submit') }}">
+                    <div class="mb-3">
+                        <label for="customer_id" class="form-label fw-semibold">Customer ID <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="customer_id" name="customer_id" placeholder="e.g. CUST-1042" required>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label for="product_id" class="form-label fw-semibold">Product</label>
+                            <select class="form-select" id="product_id" name="product_id">
+                                <option value="PROD-001">Analytics Platform</option>
+                                <option value="PROD-002">Cloud API Gateway</option>
+                                <option value="PROD-003">Mobile SDK</option>
+                                <option value="PROD-004">Enterprise Billing</option>
+                                <option value="PROD-005">Customer Portal</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="category" class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="Payment Failed">Payment Failed</option>
+                                <option value="Login Issue">Login Issue</option>
+                                <option value="Data Sync Error">Data Sync Error</option>
+                                <option value="API Rate Limiting">API Rate Limiting</option>
+                                <option value="Billing Dispute">Billing Dispute</option>
+                                <option value="Feature Request">Feature Request</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label for="priority" class="form-label fw-semibold">Priority <span class="text-danger">*</span></label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="Urgent">Urgent (2h SLA)</option>
+                                <option value="High" selected>High (4h SLA)</option>
+                                <option value="Medium">Medium (8h SLA)</option>
+                                <option value="Low">Low (24h SLA)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="channel" class="form-label fw-semibold">Channel <span class="text-danger">*</span></label>
+                            <select class="form-select" id="channel" name="channel" required>
+                                <option value="Email" selected>Email</option>
+                                <option value="Web Portal">Web Portal</option>
+                                <option value="Chat">Live Chat</option>
+                                <option value="Phone">Phone</option>
+                                <option value="API">API</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="agent_id" class="form-label fw-semibold">Assigned Agent</label>
+                        <input type="text" class="form-control" id="agent_id" name="agent_id" placeholder="e.g. AGENT-001 (optional)">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="notes" class="form-label fw-semibold">Ticket Details / Description</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Describe the issue reported by the customer..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm">
+                        <i class="bi bi-send me-1"></i> Submit Ticket
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Ops Queue & Status Updates -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold mb-0"><i class="bi bi-list-task text-secondary me-2"></i>Operational Intake Queue</h5>
+                    <span class="text-muted small">Live entries from <code>ops.tickets</code></span>
+                </div>
+                <span class="badge bg-primary">{{ recent_tickets|length }} Recorded</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ticket</th>
+                                <th>Customer</th>
+                                <th>Category / Priority</th>
+                                <th>Channel</th>
+                                <th>Status</th>
+                                <th style="min-width: 170px;">Update Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ticket in recent_tickets %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark">{{ ticket.ticket_id }}</div>
+                                    <div class="text-muted small">{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at and ticket.created_at.strftime is defined else ticket.created_at }}</div>
+                                </td>
+                                <td>
+                                    <span class="fw-semibold">{{ ticket.customer_id }}</span>
+                                    {% if ticket.notes %}
+                                    <div class="text-muted small text-truncate" style="max-width: 130px;" title="{{ ticket.notes }}">{{ ticket.notes }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ ticket.category }}</div>
+                                    {% if ticket.priority == 'Urgent' %}<span class="badge bg-danger">Urgent</span>
+                                    {% elif ticket.priority == 'High' %}<span class="badge bg-warning text-dark">High</span>
+                                    {% elif ticket.priority == 'Medium' %}<span class="badge bg-info text-dark">Medium</span>
+                                    {% else %}<span class="badge bg-secondary">Low</span>{% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">{{ ticket.channel }}</span>
+                                </td>
+                                <td>
+                                    {% if ticket.status == 'Open' %}<span class="badge bg-warning text-dark">Open</span>
+                                    {% elif ticket.status == 'In Progress' %}<span class="badge bg-info text-dark">In Progress</span>
+                                    {% elif ticket.status == 'Resolved' %}<span class="badge bg-success">Resolved</span>
+                                    {% else %}<span class="badge bg-secondary">{{ ticket.status }}</span>{% endif %}
+                                </td>
+                                <td>
+                                    <!-- POST form for ticket status updates -->
+                                    <form method="post" action="{{ url_for('intake.update_ticket_status', ticket_id=ticket.ticket_id) }}" class="d-flex align-items-center gap-1">
+                                        <select name="status" class="form-select form-select-sm" style="font-size: 0.8rem; padding: 0.2rem 0.4rem;">
+                                            <option value="Open" {{ 'selected' if ticket.status == 'Open' }}>Open</option>
+                                            <option value="In Progress" {{ 'selected' if ticket.status == 'In Progress' }}>In Progress</option>
+                                            <option value="Resolved" {{ 'selected' if ticket.status == 'Resolved' }}>Resolved</option>
+                                            <option value="Closed" {{ 'selected' if ticket.status == 'Closed' }}>Closed</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Update status">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    No operational tickets submitted yet. Fill out the form on the left to submit the first ticket!
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
