@@ -2,7 +2,7 @@ import datetime
 import uuid
 import logging
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, event
 from config import Config
 
 logger = logging.getLogger("IntakeBlueprint")
@@ -19,8 +19,37 @@ def ensure_ops_schema(engine):
     """Ensure that the ops schema and ops.tickets table exist."""
     try:
         is_sqlite = "sqlite" in str(engine.url)
-        with engine.begin() as conn:
-            if not is_sqlite:
+        if is_sqlite:
+            # For SQLite, attach an in-memory or file-backed database named 'ops'
+            @event.listens_for(engine, "connect")
+            def _attach_ops_db(dbapi_con, con_record):
+                try:
+                    dbapi_con.execute("ATTACH DATABASE '' AS ops")
+                except Exception:
+                    pass
+
+            with engine.begin() as conn:
+                try:
+                    conn.execute(text("ATTACH DATABASE '' AS ops"))
+                except Exception:
+                    pass
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS ops.tickets (
+                        ticket_id VARCHAR(50) PRIMARY KEY,
+                        customer_id VARCHAR(50),
+                        agent_id VARCHAR(50),
+                        product_id VARCHAR(50),
+                        category VARCHAR(100) NOT NULL,
+                        priority VARCHAR(50) NOT NULL,
+                        channel VARCHAR(50) NOT NULL,
+                        status VARCHAR(50) NOT NULL DEFAULT 'Open',
+                        notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """))
+        else:
+            with engine.begin() as conn:
                 conn.execute(text("CREATE SCHEMA IF NOT EXISTS ops;"))
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS ops.tickets (
@@ -37,22 +66,6 @@ def ensure_ops_schema(engine):
                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     );
                 """))
-            else:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS "ops.tickets" (
-                        ticket_id VARCHAR(50) PRIMARY KEY,
-                        customer_id VARCHAR(50),
-                        agent_id VARCHAR(50),
-                        product_id VARCHAR(50),
-                        category VARCHAR(100) NOT NULL,
-                        priority VARCHAR(50) NOT NULL,
-                        channel VARCHAR(50) NOT NULL,
-                        status VARCHAR(50) NOT NULL DEFAULT 'Open',
-                        notes TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """))
     except Exception as e:
         logger.warning(f"Could not automatically ensure ops schema: {e}")
 
@@ -65,13 +78,10 @@ def intake():
     recent_tickets = []
     
     try:
-        is_sqlite = "sqlite" in str(engine.url)
-        table_ref = '"ops.tickets"' if is_sqlite else "ops.tickets"
-        
-        query = text(f"""
+        query = text("""
             SELECT ticket_id, customer_id, agent_id, product_id, category, 
                    priority, channel, status, notes, created_at, updated_at
-            FROM {table_ref}
+            FROM ops.tickets
             ORDER BY created_at DESC
             LIMIT 50
         """)
@@ -80,7 +90,6 @@ def intake():
             recent_tickets = [dict(row._mapping) for row in result]
     except Exception as e:
         logger.warning(f"Unable to query ops.tickets: {e}")
-        # Soft fallback if DB not populated or connected
         recent_tickets = []
 
     return render_template("intake.html", recent_tickets=recent_tickets)
@@ -108,12 +117,9 @@ def submit():
     ticket_id = f"TKT-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}"
     now = datetime.datetime.now(datetime.timezone.utc)
 
-    is_sqlite = "sqlite" in str(engine.url)
-    table_ref = '"ops.tickets"' if is_sqlite else "ops.tickets"
-
     # Parameterized SQL write
-    insert_sql = text(f"""
-        INSERT INTO {table_ref} (
+    insert_sql = text("""
+        INSERT INTO ops.tickets (
             ticket_id, customer_id, agent_id, product_id, category,
             priority, channel, status, notes, created_at, updated_at
         ) VALUES (
@@ -170,12 +176,10 @@ def update_ticket_status(ticket_id):
         return redirect(request.referrer or url_for("intake.intake"))
 
     now = datetime.datetime.now(datetime.timezone.utc)
-    is_sqlite = "sqlite" in str(engine.url)
-    table_ref = '"ops.tickets"' if is_sqlite else "ops.tickets"
 
     # Parameterized SQL write
-    update_sql = text(f"""
-        UPDATE {table_ref}
+    update_sql = text("""
+        UPDATE ops.tickets
         SET status = :status, updated_at = :updated_at
         WHERE ticket_id = :ticket_id
     """)
@@ -196,7 +200,8 @@ def update_ticket_status(ticket_id):
             else:
                 if request.is_json:
                     return jsonify({"success": True, "ticket_id": ticket_id, "status": new_status}), 200
-                flash(f"Status for {ticket_id} updated to '{new_status}'.", "success")
+                flash(f"Status for {ticket_id} updated to {new_status}.", "success")
+
     except Exception as e:
         logger.error(f"Failed to update ticket {ticket_id}: {e}")
         if request.is_json:
