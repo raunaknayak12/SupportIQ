@@ -43,9 +43,10 @@ From support tickets to actionable operational insights. **SupportIQ** is an end
    $$\text{SLA Risk Score} = \frac{\text{elapsed\_hours}}{\text{allowed\_SLA\_hours}}$$
    Classifies tickets into `Low Risk`, `Medium Risk`, `High Risk`, and `Breached`.
 3. **Manager Insights Engine**: Automated evidence-based insight blocks identifying high-volume category surges, operational bottlenecks, and recommended capacity adjustments.
-4. **PostgreSQL Star Schema & Views**: Optimized schema with `dim_agents`, `dim_customers`, `dim_products`, `fact_tickets`, `v_executive_kpis`, `v_agent_performance`, `v_sla_risk_queue`, and `v_customer_issue_intelligence`.
+4. **PostgreSQL Star Schema & Views**: Optimized schema with `dim_agents`, `dim_customers`, `dim_products`, `fact_tickets`, `ops.tickets`, `v_executive_kpis`, `v_agent_performance`, `v_sla_risk_queue`, and `v_customer_issue_intelligence`.
 5. **Apache Superset BI Integration**: Automated REST database connector script and 3 specialized operational dashboards.
-6. **Flask Operational Console**: Interactive dashboard UI (`http://localhost:5050`) for live SLA queue inspection and manual ETL execution.
+6. **Unified Flask Ops Console & Intake**: Single Flask web app with shared navbar (`base.html`), Blueprint-modularized ticket intake (`web/intake`), parameterized SQL writes into `ops.tickets`, live status updates, executive KPIs, and SLA Risk Queue (`http://localhost:5050`).
+
 
 ---
 
