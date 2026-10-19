@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Console — SupportIQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-primary me-2"></i>Operational Console</h2>
+        <p class="text-muted mb-0">Real-time ETL data pipeline monitoring, executive KPIs & SLA risk analysis</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <form method="post" action="{{ url_for('run_elt') }}" class="d-inline">
+            <button type="submit" class="btn btn-primary fw-semibold shadow-sm">
+                <i class="bi bi-arrow-repeat me-1"></i> Run ELT Pipeline
+            </button>
+        </form>
+        <a href="{{ url_for('intake.intake') }}" class="btn btn-outline-primary fw-semibold shadow-sm">
+            <i class="bi bi-plus-circle me-1"></i> New Ticket
+        </a>
+    </div>
+</div>
+
+<!-- Quick Integration Links -->
+<div class="mb-4 d-flex gap-2 flex-wrap">
+    <a href="http://localhost:8088" target="_blank" class="badge text-bg-light border text-decoration-none px-3 py-2">
+        <i class="bi bi-bar-chart-line text-primary me-1"></i> Superset BI Dashboards
+    </a>
+    <a href="http://localhost:8000" target="_blank" class="badge text-bg-light border text-decoration-none px-3 py-2">
+        <i class="bi bi-table text-success me-1"></i> Baserow Ticket Entry
+    </a>
+    <a href="{{ url_for('risk_queue') }}" class="badge text-bg-light border text-decoration-none px-3 py-2">
+        <i class="bi bi-shield-exclamation text-danger me-1"></i> Full Risk Queue View
+    </a>
+</div>
+
+<!-- Executive KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-4 col-lg-2">
+        <div class="card kpi-card p-3">
+            <div class="kpi-title">Total Tickets</div>
+            <div class="kpi-value">{{ kpis.get('total_tickets', 0) }}</div>
+            <div class="small text-muted mt-2"><i class="bi bi-ticket-perforated"></i> Seeded Dataset</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4 col-lg-2">
+        <div class="card kpi-card p-3">
+            <div class="kpi-title">SLA Compliance</div>
+            <div class="kpi-value text-success">{{ kpis.get('sla_compliance_pct', 0) }}%</div>
+            <div class="small text-muted mt-2"><i class="bi bi-shield-check"></i> Target: &gt;85%</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4 col-lg-2">
+        <div class="card kpi-card p-3">
+            <div class="kpi-title">Avg Resolution</div>
+            <div class="kpi-value text-primary">{{ kpis.get('avg_resolution_hours', 0) }}h</div>
+            <div class="small text-muted mt-2"><i class="bi bi-clock-history"></i> Resolution Time</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4 col-lg-2">
+        <div class="card kpi-card p-3">
+            <div class="kpi-title">Avg CSAT</div>
+            <div class="kpi-value text-warning">{{ kpis.get('avg_csat', 0) }} / 5</div>
+            <div class="small text-muted mt-2"><i class="bi bi-star-fill"></i> Satisfaction</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4 col-lg-2">
+        <div class="card kpi-card p-3">
+            <div class="kpi-title">Open Backlog</div>
+            <div class="kpi-value text-danger">{{ kpis.get('open_tickets', 0) }}</div>
+            <div class="small text-muted mt-2"><i class="bi bi-hourglass-split"></i> {{ kpis.get('unresolved_backlog_pct', 0) }}% backlog</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4 col-lg-2">
+        <div class="card kpi-card p-3">
+            <div class="kpi-title">Resolved</div>
+            <div class="kpi-value text-secondary">{{ kpis.get('resolved_tickets', 0) }}</div>
+            <div class="small text-muted mt-2"><i class="bi bi-check-all"></i> Closed Tickets</div>
+        </div>
+    </div>
+</div>
+
+<!-- Manager Operational Insights -->
+<div class="mb-4">
+    <h4 class="fw-bold mb-3"><i class="bi bi-lightbulb text-warning me-2"></i>Evidence-Based Manager Insights</h4>
+    <div class="row g-3">
+        {% for insight in insights %}
+        <div class="col-md-4">
+            <div class="card insight-card p-3 shadow-sm h-100">
+                <span class="badge bg-primary text-uppercase w-auto me-auto mb-2">{{ insight.type }}</span>
+                <h5 class="fw-bold text-dark">{{ insight.title }}</h5>
+                <p class="small text-muted mb-2"><strong>Evidence:</strong> {{ insight.evidence }}</p>
+                <p class="small text-danger mb-2"><strong>Impact:</strong> {{ insight.impact }}</p>
+                <div class="p-2 bg-light rounded border-start border-3 border-success small mt-auto">
+                    <strong>Recommended Action:</strong> {{ insight.recommended_action }}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-light border text-muted">
+                No manager insights generated. Run the ELT pipeline or check analytics data store.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- SLA Risk Queue Summary Table -->
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="fw-bold mb-0">
+            <i class="bi bi-exclamation-triangle text-danger me-2"></i>Live SLA Breach Risk Queue (Active Open Tickets)
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary">{{ (risk_summary or risk_queue)|length }} Showing</span>
+            <a href="{{ url_for('risk_queue') }}" class="btn btn-sm btn-outline-secondary">View Full Queue &rarr;</a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ticket ID</th>
+                        <th>Customer</th>
+                        <th>Priority</th>
+                        <th>Category</th>
+                        <th>Assigned Agent</th>
+                        <th>SLA Target</th>
+                        <th>Risk Score</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set queue_items = risk_summary if risk_summary is defined and risk_summary else risk_queue %}
+                    {% for item in queue_items %}
+                    <tr>
+                        <td class="fw-bold">{{ item.ticket_id }}</td>
+                        <td>
+                            {{ item.customer_id }}
+                            {% if item.customer_segment %}
+                            <span class="badge bg-light text-dark border">{{ item.customer_segment }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.priority == 'Urgent' %}<span class="badge bg-danger">Urgent</span>
+                            {% elif item.priority == 'High' %}<span class="badge bg-warning text-dark">High</span>
+                            {% elif item.priority == 'Medium' %}<span class="badge bg-info text-dark">Medium</span>
+                            {% else %}<span class="badge bg-secondary">Low</span>{% endif %}
+                        </td>
+                        <td>{{ item.category }}</td>
+                        <td>{{ item.agent_name or item.agent_id or 'Unassigned' }}</td>
+                        <td>{{ item.sla_target_hours }} hrs</td>
+                        <td class="fw-bold">
+                            {{ ((item.sla_risk_score or 0) * 100)|round(1) }}%
+                        </td>
+                        <td>
+                            {% if item.sla_risk_category == 'Breached' %}<span class="badge badge-breached">Breached</span>
+                            {% elif item.sla_risk_category == 'High Risk' %}<span class="badge badge-high">High Risk</span>
+                            {% elif item.sla_risk_category == 'Medium Risk' %}<span class="badge badge-medium">Medium Risk</span>
+                            {% else %}<span class="badge badge-low">Low Risk</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            No open tickets in risk queue. Click "Run ELT Pipeline" to populate operational data.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
