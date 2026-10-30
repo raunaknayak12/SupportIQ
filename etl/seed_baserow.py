@@ -80,14 +80,10 @@ def generate_synthetic_data(num_tickets=1284, num_customers=150):
         # Timeline generation (last 90 days)
         days_ago = random.uniform(0.05, 90)
         created_dt = now - datetime.timedelta(days=days_ago)
-        
         sla_target = Config.SLA_TARGETS_HOURS[priority]
         
-        # Response time (0.1h to 4h)
-        first_resp_hrs = random.uniform(0.1, 4.0)
-        first_resp_dt = created_dt + datetime.timedelta(hours=first_resp_hrs)
-        
         resolved_dt_str = None
+        first_resp_dt_str = None
         csat = None
         
         if status in ["Resolved", "Closed"]:
@@ -103,11 +99,25 @@ def generate_synthetic_data(num_tickets=1284, num_customers=150):
                 resolved_dt = now
             resolved_dt_str = resolved_dt.isoformat()
             
+            # First response must strictly occur between creation and resolution (and before now)
+            max_resp_hrs = max(0.05, (resolved_dt - created_dt).total_seconds() / 3600.0 * 0.75)
+            first_resp_hrs = min(random.uniform(0.1, 4.0), max_resp_hrs)
+            first_resp_dt = min(created_dt + datetime.timedelta(hours=first_resp_hrs), resolved_dt, now)
+            first_resp_dt_str = first_resp_dt.isoformat()
+
             # CSAT rating (1 to 5)
             if is_breach:
                 csat = random.choices([1, 2, 3, 4, 5], weights=[0.4, 0.3, 0.2, 0.08, 0.02])[0]
             else:
                 csat = random.choices([1, 2, 3, 4, 5], weights=[0.02, 0.05, 0.15, 0.45, 0.33])[0]
+        else:
+            # Open or In Progress: 75% have had first response, 25% are new
+            if random.random() < 0.75:
+                max_resp_hrs = max(0.05, (now - created_dt).total_seconds() / 3600.0 * 0.9)
+                first_resp_hrs = min(random.uniform(0.1, 4.0), max_resp_hrs)
+                first_resp_dt = created_dt + datetime.timedelta(hours=first_resp_hrs)
+                if first_resp_dt <= now:
+                    first_resp_dt_str = first_resp_dt.isoformat()
 
         tickets.append({
             "ticket_id": tkt_id,
@@ -119,7 +129,7 @@ def generate_synthetic_data(num_tickets=1284, num_customers=150):
             "channel": channel,
             "status": status,
             "created_at": created_dt.isoformat(),
-            "first_response_at": first_resp_dt.isoformat(),
+            "first_response_at": first_resp_dt_str if first_resp_dt_str else "",
             "resolved_at": resolved_dt_str if resolved_dt_str else "",
             "sla_target_hours": float(sla_target),
             "csat": float(csat) if csat else 0.0,
