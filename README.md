@@ -1,6 +1,6 @@
 # SupportIQ — Customer Support Operations Intelligence Platform
 
-[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
 [![Baserow](https://img.shields.io/badge/Baserow-REST_API-green.svg)](https://baserow.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue.svg)](https://www.postgresql.org/)
@@ -15,9 +15,9 @@ From support tickets to actionable operational insights. **SupportIQ** is an end
 
 ```
 ┌──────────────────────────────────────────────┐
-│  Baserow (Operational Ticket Entry / Storage)│  <-- REST API (Port 8000)
+│  Baserow & Web Intake (Operational Tickets)  │  <-- REST API (Port 8000) & Flask Intake
 └──────────────────────┬───────────────────────┘
-                       │ Ingestion
+                       │ Ingestion & Synchronization
                        ▼
 ┌──────────────────────────────────────────────┐
 │  Python ETL Pipeline (Pandas + SQLAlchemy)   │  <-- SLA Risk Score Engine
@@ -30,7 +30,7 @@ From support tickets to actionable operational insights. **SupportIQ** is an end
                        │ Connection
                        ▼
 ┌──────────────────────────────────────────────┐
-│  Apache Superset BI & Flask Operational UI   │  <-- Decision Dashboards (Port 8088 / 5050)
+│  Apache Superset BI & Unified Web Console    │  <-- Decision Dashboards (Port 8088 / 5050)
 └──────────────────────────────────────────────┘
 ```
 
@@ -45,8 +45,8 @@ From support tickets to actionable operational insights. **SupportIQ** is an end
 3. **Manager Insights Engine**: Automated evidence-based insight blocks identifying high-volume category surges, operational bottlenecks, and recommended capacity adjustments.
 4. **PostgreSQL Star Schema & Views**: Optimized schema with `dim_agents`, `dim_customers`, `dim_products`, `fact_tickets`, `ops.tickets`, `v_executive_kpis`, `v_agent_performance`, `v_sla_risk_queue`, and `v_customer_issue_intelligence`.
 5. **Apache Superset BI Integration**: Automated REST database connector script and 3 specialized operational dashboards.
-6. **Unified Flask Ops Console & Intake**: Single Flask web app with shared navbar (`base.html`), Blueprint-modularized ticket intake (`web/intake`), parameterized SQL writes into `ops.tickets`, live status updates, executive KPIs, and SLA Risk Queue (`http://localhost:5050`).
-
+6. **Unified Flask Ops Console & Intake**: Single Flask web app with shared navbar (`base.html`), live **SLA Breach counter badge**, Blueprint-modularized ticket intake (`web/intake`), parameterized SQL writes into `ops.tickets`, live status updates, executive KPIs, and SLA Risk Queue (`http://localhost:5050`).
+7. **End-to-End ELT Ingestion**: The data pipeline automatically harmonizes Baserow data and intake-submitted tickets from `ops.tickets` into analytical star-schema models.
 
 ---
 
