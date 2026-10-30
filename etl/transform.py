@@ -6,11 +6,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("Transform")
 
 def classify_sla_risk(risk_score):
-    if risk_score > 1.0:
+    if risk_score is None:
+        return "Low Risk"
+    if risk_score >= 1.0:
         return "Breached"
-    elif risk_score > 0.8:
+    elif risk_score >= 0.8:
         return "High Risk"
-    elif risk_score > 0.5:
+    elif risk_score >= 0.5:
         return "Medium Risk"
     else:
         return "Low Risk"
@@ -52,7 +54,7 @@ def transform_tickets(raw_tickets_df, reference_time=None):
     def calc_risk(row):
         if row['status'] in ['Open', 'In Progress']:
             elapsed = (reference_time - row['created_at']).total_seconds() / 3600.0
-            score = round(elapsed / row['sla_target_hours'], 4)
+            score = round(max(0.0, elapsed) / max(0.1, float(row['sla_target_hours'])), 4)
             return score
         else:
             return None
