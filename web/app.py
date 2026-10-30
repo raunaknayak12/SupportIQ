@@ -16,7 +16,7 @@ logger = logging.getLogger("SupportIQApp")
 def create_app(engine_override=None):
     """Application factory for SupportIQ Flask Web Console."""
     app = Flask(__name__, template_folder="templates", static_folder="static")
-    app.secret_key = os.getenv("SECRET_KEY", "supportiq_secret_key")
+    app.secret_key = Config.SECRET_KEY if hasattr(Config, "SECRET_KEY") else os.getenv("SECRET_KEY", "supportiq_secret_key")
 
     engine = engine_override or create_engine(Config.SQLALCHEMY_DATABASE_URI)
     app.config["ENGINE"] = engine
@@ -26,6 +26,22 @@ def create_app(engine_override=None):
 
     # Register intake Blueprint (Single app, single port)
     app.register_blueprint(intake_bp, url_prefix="/intake")
+
+    @app.context_processor
+    def inject_nav_context():
+        """Inject live SLA breach count into navbar templates."""
+        breach_count = 0
+        try:
+            with engine.connect() as conn:
+                df = pd.read_sql(
+                    "SELECT COUNT(*) AS c FROM fact_tickets WHERE status IN ('Open', 'In Progress') AND (sla_risk_category = 'Breached' OR sla_risk_score >= 1.0)",
+                    conn
+                )
+                if not df.empty and df.iloc[0]['c'] is not None:
+                    breach_count = int(df.iloc[0]['c'])
+        except Exception:
+            breach_count = 0
+        return {"sla_breach_count": breach_count}
 
     def get_executive_kpis():
         """Retrieve executive KPIs from v_executive_kpis view."""

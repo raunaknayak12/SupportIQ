@@ -20,7 +20,13 @@
       <li><a href="{{ url_for('intake.intake') }}"
              class="{{ 'active' if request.endpoint and request.endpoint.startswith('intake.') else '' }}">New Ticket</a></li>
       <li><a href="{{ url_for('risk_queue') }}"
-             class="{{ 'active' if request.endpoint == 'risk_queue' else '' }}">Risk Queue</a></li>
+             class="{{ 'active' if request.endpoint == 'risk_queue' else '' }}">
+             Risk Queue
+             {% if sla_breach_count and sla_breach_count > 0 %}
+             <span class="badge bg-danger rounded-pill ms-1" style="font-size: 0.75rem;" title="{{ sla_breach_count }} SLA Breaches">{{ sla_breach_count }}</span>
+             {% endif %}
+          </a>
+      </li>
     </ul>
   </nav>
 
