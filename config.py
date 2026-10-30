@@ -1,6 +1,9 @@
 import os
 
 class Config:
+    # Security Settings
+    SECRET_KEY = os.getenv("SECRET_KEY", "supportiq_secret_key")
+
     # Baserow Settings
     BASEROW_URL = os.getenv("BASEROW_URL", "http://localhost:8000")
     BASEROW_EMAIL = os.getenv("BASEROW_EMAIL", "admin@supportiq.local")
@@ -14,10 +17,17 @@ class Config:
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5433")
     POSTGRES_DB = os.getenv("POSTGRES_DB", "supportiq_analytics")
     
-    SQLALCHEMY_DATABASE_URI = (
-        f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
-        f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    )
+    # Database URI priority: DATABASE_URL -> POSTGRES_URL -> Constructed URI
+    _env_db_uri = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or os.getenv("SQLALCHEMY_DATABASE_URI")
+    if _env_db_uri:
+        if _env_db_uri.startswith("postgres://"):
+            _env_db_uri = _env_db_uri.replace("postgres://", "postgresql+psycopg2://", 1)
+        SQLALCHEMY_DATABASE_URI = _env_db_uri
+    else:
+        SQLALCHEMY_DATABASE_URI = (
+            f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+            f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+        )
     
     # SLA Targets (in hours) by Priority
     SLA_TARGETS_HOURS = {
