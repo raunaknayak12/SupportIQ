@@ -25,6 +25,9 @@ class SupportIQPipeline:
             sql_script = f.read()
 
         logger.info("Initializing PostgreSQL Analytics Database Schema and Views...")
+        # For non-PostgreSQL engines (e.g. SQLite), skip DDL execution that contains Postgres-only syntax
+        if "sqlite" in str(self.engine.url):
+            return
         with self.engine.begin() as conn:
             conn.execute(text(sql_script))
         logger.info("Database schema initialized successfully.")
@@ -32,11 +35,18 @@ class SupportIQPipeline:
     def clear_database_data(self):
         """Cleanly drop views and truncate tables before re-loading."""
         with self.engine.begin() as conn:
-            conn.execute(text("DROP VIEW IF EXISTS v_executive_kpis CASCADE;"))
-            conn.execute(text("DROP VIEW IF EXISTS v_agent_performance CASCADE;"))
-            conn.execute(text("DROP VIEW IF EXISTS v_sla_risk_queue CASCADE;"))
-            conn.execute(text("DROP VIEW IF EXISTS v_customer_issue_intelligence CASCADE;"))
-            conn.execute(text("TRUNCATE fact_tickets, dim_agents, dim_customers, dim_products, sla_risk_log RESTART IDENTITY CASCADE;"))
+            if "sqlite" in str(self.engine.url):
+                for tbl in ["fact_tickets", "dim_agents", "dim_customers", "dim_products", "sla_risk_log"]:
+                    try:
+                        conn.execute(text(f"DELETE FROM {tbl};"))
+                    except Exception:
+                        pass
+            else:
+                conn.execute(text("DROP VIEW IF EXISTS v_executive_kpis CASCADE;"))
+                conn.execute(text("DROP VIEW IF EXISTS v_agent_performance CASCADE;"))
+                conn.execute(text("DROP VIEW IF EXISTS v_sla_risk_queue CASCADE;"))
+                conn.execute(text("DROP VIEW IF EXISTS v_customer_issue_intelligence CASCADE;"))
+                conn.execute(text("TRUNCATE fact_tickets, dim_agents, dim_customers, dim_products, sla_risk_log RESTART IDENTITY CASCADE;"))
 
     def run_pipeline(self):
         logger.info("Starting SupportIQ ETL Pipeline...")
@@ -52,7 +62,7 @@ class SupportIQPipeline:
             client.authenticate()
 
         tables = client.get_tables()
-        if not tables:
+        if not tables and not self.use_mock:
             raise RuntimeError("No tables found in Baserow database!")
 
         # 1. Fetch Agents
@@ -88,9 +98,31 @@ class SupportIQPipeline:
             df_products.to_sql("dim_products", self.engine, if_exists="append", index=False)
             logger.info(f"Loaded {len(df_products)} rows into dim_products.")
 
-        # 4. Fetch Tickets & Transform
+        # 4. Fetch Tickets from Baserow + Ops Intake Tickets
         tickets_table_id = tables.get("Tickets")
         raw_tickets = client.get_rows(tickets_table_id) if tickets_table_id else []
+
+        # Ingest operational tickets submitted via web console intake
+        try:
+            with self.engine.connect() as conn:
+                is_sqlite = "sqlite" in str(self.engine.url)
+                ops_tbl = '"ops.tickets"' if is_sqlite else "ops.tickets"
+                ops_rows = conn.execute(text(f"SELECT * FROM {ops_tbl}")).fetchall()
+                if ops_rows:
+                    for row in ops_rows:
+                        ot = dict(row._mapping)
+                        prio = ot.get("priority", "Medium")
+                        sla_target = Config.SLA_TARGETS_HOURS.get(prio, 8.0)
+                        ot.setdefault("sla_target_hours", sla_target)
+                        ot.setdefault("customer_region", "US-East")
+                        ot.setdefault("first_response_at", None)
+                        ot.setdefault("resolved_at", None)
+                        ot.setdefault("csat", 0.0)
+                        raw_tickets.append(ot)
+                    logger.info(f"Ingested {len(ops_rows)} operational tickets from ops.tickets.")
+        except Exception as e:
+            logger.debug(f"ops.tickets check skipped: {e}")
+
         df_tickets = pd.DataFrame(raw_tickets)
         if not df_tickets.empty:
             df_tickets = df_tickets.dropna(subset=['ticket_id'])
