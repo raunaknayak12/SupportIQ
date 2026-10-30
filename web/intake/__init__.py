@@ -102,7 +102,7 @@ def submit():
 
     # Extract form inputs
     customer_id = (request.form.get("customer_id") or "").strip()
-    product_id = (request.form.get("product_id") or "PROD-001").strip()
+    product_id = (request.form.get("product_id") or "PRD-01").strip()
     category = (request.form.get("category") or "").strip()
     priority = (request.form.get("priority") or "Medium").strip()
     channel = (request.form.get("channel") or "Web Portal").strip()
