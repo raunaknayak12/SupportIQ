@@ -1,8 +1,9 @@
 # SupportIQ — Apache Superset Dashboard Construction Guide
 
 This step-by-step guide provides explicit instructions for constructing all **3 Operational Support Dashboards** in Apache Superset (`http://localhost:8088`) using the automatically registered datasets:
-- Database: `SupportIQ Analytics DB`
-- Registered Datasets: `fact_tickets`, `v_executive_kpis`, `v_agent_performance`, `v_sla_risk_queue`, `v_customer_issue_intelligence`.
+- **Database**: `SupportIQ Analytics DB`
+- **Registered Datasets**: `fact_tickets`, `v_executive_kpis`, `v_agent_performance`, `v_sla_risk_queue`, `v_customer_issue_intelligence`.
+- **Reference Guide**: See also [`superset/DASHBOARD_BUILD_GUIDE.md`](superset/DASHBOARD_BUILD_GUIDE.md) for supplementary chart layouts and native filters.
 
 ---
 
@@ -65,29 +66,29 @@ Create 6 Big Number KPI cards using dataset `v_executive_kpis`:
    - Dataset: `v_agent_performance`
    - Chart Type: *Bar Chart*
    - X-Axis: `agent_name`
-   - Metric: `SUM(total_handled)`
+   - Metric: `MAX(total_handled)`
    - Color: `team`
 2. **Average Resolution Time by Agent**:
    - Dataset: `v_agent_performance`
    - Chart Type: *Bar Chart*
    - X-Axis: `agent_name`
-   - Metric: `SUM(avg_resolution_hours)`
+   - Metric: `MAX(avg_resolution_hours)`
 3. **SLA Compliance % by Agent**:
    - Dataset: `v_agent_performance`
    - Chart Type: *Bar Chart*
    - X-Axis: `agent_name`
-   - Metric: `SUM(sla_compliance_pct)`
+   - Metric: `MAX(sla_compliance_pct)`
    - Threshold Line: 85%
 4. **CSAT Score by Agent**:
    - Dataset: `v_agent_performance`
    - Chart Type: *Bar Chart*
    - X-Axis: `agent_name`
-   - Metric: `SUM(avg_csat)`
+   - Metric: `MAX(avg_csat)`
 5. **Open Backlog Queue per Agent**:
    - Dataset: `v_agent_performance`
    - Chart Type: *Stacked Bar Chart*
    - X-Axis: `agent_name`
-   - Metrics: `SUM(open_backlog)`
+   - Metrics: `MAX(open_backlog)`
 
 ---
 
