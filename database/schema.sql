@@ -73,15 +73,15 @@ SELECT
     COUNT(*) AS total_tickets,
     COUNT(*) FILTER (WHERE status IN ('Open', 'In Progress')) AS open_tickets,
     COUNT(*) FILTER (WHERE status IN ('Resolved', 'Closed')) AS resolved_tickets,
-    ROUND(
+    COALESCE(ROUND(
         (COUNT(*) FILTER (WHERE status IN ('Resolved', 'Closed') AND is_sla_breached = FALSE)::NUMERIC / 
         NULLIF(COUNT(*) FILTER (WHERE status IN ('Resolved', 'Closed')), 0)) * 100, 2
-    ) AS sla_compliance_pct,
-    ROUND(AVG(resolution_hours) FILTER (WHERE status IN ('Resolved', 'Closed')), 2) AS avg_resolution_hours,
-    ROUND(AVG(csat) FILTER (WHERE csat > 0), 2) AS avg_csat,
-    ROUND(
+    ), 100.0) AS sla_compliance_pct,
+    COALESCE(ROUND(AVG(resolution_hours) FILTER (WHERE status IN ('Resolved', 'Closed')), 2), 0.0) AS avg_resolution_hours,
+    COALESCE(ROUND(AVG(csat) FILTER (WHERE csat > 0), 2), 0.0) AS avg_csat,
+    COALESCE(ROUND(
         (COUNT(*) FILTER (WHERE status IN ('Open', 'In Progress'))::NUMERIC / NULLIF(COUNT(*), 0)) * 100, 2
-    ) AS unresolved_backlog_pct
+    ), 0.0) AS unresolved_backlog_pct
 FROM fact_tickets;
 
 -- 2. Agent Performance View
@@ -123,7 +123,7 @@ FROM fact_tickets t
 LEFT JOIN dim_customers c ON t.customer_id = c.customer_id
 LEFT JOIN dim_agents a ON t.agent_id = a.agent_id
 WHERE t.status IN ('Open', 'In Progress')
-ORDER BY t.sla_risk_score DESC;
+ORDER BY t.sla_risk_score DESC NULLS LAST, t.created_at ASC;
 
 -- 4. Customer & Issue Intelligence View
 CREATE OR REPLACE VIEW v_customer_issue_intelligence AS
@@ -160,4 +160,3 @@ CREATE TABLE IF NOT EXISTS ops.tickets (
 
 CREATE INDEX IF NOT EXISTS idx_ops_tickets_status ON ops.tickets(status);
 CREATE INDEX IF NOT EXISTS idx_ops_tickets_created_at ON ops.tickets(created_at);
-
